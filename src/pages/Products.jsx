@@ -1,194 +1,391 @@
 // src/pages/Products.jsx
 import React, { useEffect, useState } from "react";
+import { useLocation } from "react-router-dom";
 import { getProducts, addProduct, updateProduct, findProduct } from "../state/store";
 
-function validateProductInput({ name, sku, uom, qty }) {
-  if (!name || !name.trim()) return "Name is required";
-  if (!sku || !sku.trim()) return "SKU / Code is required";
-  if (!uom || !uom.trim()) return "Unit of Measure is required";
-  if (qty === "" || qty === null || qty === undefined) return null; // qty optional
-  if (!Number.isInteger(Number(qty)) || Number(qty) < 0) return "Initial stock must be a non-negative integer";
-  return null;
-}
-
 export default function Products() {
-  const [products, setProducts] = useState([]);
-  const [form, setForm] = useState({
-    name: "",
-    sku: "",
-    category: "",
-    uom: "",
-    qty: "",
-    warehouse: "WH-A",
-    reorder: ""
-  });
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+    const location = useLocation();
 
-  // load products from store on mount
-  useEffect(() => {
-    setProducts(getProducts());
-  }, []);
+    const [products, setProducts] = useState([]);
+    const [form, setForm] = useState({
+        name: "",
+        sku: "",
+        category: "",
+        uom: "",
+        qty: "",
+        warehouse: "WH-A",
+        reorder: ""
+    });
 
-  function reload() {
-    setProducts(getProducts());
-  }
+    const [error, setError] = useState("");
+    const [success, setSuccess] = useState("");
 
-  function handleChange(e) {
-    const { name, value } = e.target;
-    setForm((s) => ({ ...s, [name]: value }));
-    setError("");
-    setSuccess("");
-  }
+    // Search + quick filters
+    const [search, setSearch] = useState("");
+    const [filterMode, setFilterMode] = useState(""); // "", "low", "out"
 
-  function handleCreate(e) {
-    e.preventDefault();
-    const err = validateProductInput(form);
-    if (err) {
-      setError(err);
-      return;
+    // Load initial data
+    useEffect(() => {
+        setProducts(getProducts());
+    }, []);
+
+    // URL preset (?filter=low)
+    useEffect(() => {
+        const params = new URLSearchParams(location.search);
+        if (params.get("filter") === "low") {
+            setFilterMode("low");
+        }
+    }, [location.search]);
+
+    function reload() {
+        setProducts(getProducts());
     }
 
-    // check SKU uniqueness
-    try {
-      if (findProduct(form.sku)) {
-        setError("SKU already exists. Use a unique SKU.");
-        return;
-      }
-    } catch (e) {
-      // continue
+    function handleChange(e) {
+        const { name, value } = e.target;
+        setForm((s) => ({ ...s, [name]: value }));
+        setError("");
+        setSuccess("");
     }
 
-    try {
-      addProduct({
-        sku: form.sku.trim(),
-        name: form.name.trim(),
-        category: form.category.trim() || "Uncategorized",
-        uom: form.uom.trim(),
-        qty: form.qty === "" ? 0 : Number(form.qty),
-        warehouse: form.warehouse || "WH-A",
-        reorder: form.reorder ? Number(form.reorder) : 0
-      });
-      setSuccess("Product created");
-      setForm({ name: "", sku: "", category: "", uom: "", qty: "", warehouse: "WH-A", reorder: "" });
-      reload();
-    } catch (err) {
-      setError(err.message || "Failed to create product");
+    function validate(form) {
+        if (!form.name.trim()) return "Name is required";
+        if (!form.sku.trim()) return "SKU is required";
+        if (!form.uom.trim()) return "Unit of measure required";
+        if (form.qty && (!Number.isInteger(Number(form.qty)) || Number(form.qty) < 0))
+            return "Initial stock must be a non-negative integer";
+        return null;
     }
-  }
 
-  function handleAdjust(sku) {
-    const current = products.find(p => p.sku === sku);
-    const val = prompt(`Enter new qty for ${sku} (current ${current.qty}):`, String(current.qty));
-    if (val === null) return;
-    if (!Number.isInteger(Number(val)) || Number(val) < 0) {
-      alert("Quantity must be a non-negative integer");
-      return;
+    function handleCreate(e) {
+        e.preventDefault();
+        const err = validate(form);
+        if (err) return setError(err);
+
+        if (findProduct(form.sku)) {
+            return setError("SKU already exists");
+        }
+
+        addProduct({
+            sku: form.sku.trim(),
+            name: form.name.trim(),
+            category: form.category.trim() || "Uncategorized",
+            uom: form.uom.trim(),
+            qty: form.qty ? Number(form.qty) : 0,
+            warehouse: form.warehouse,
+            reorder: form.reorder ? Number(form.reorder) : 0
+        });
+
+        setSuccess("Product created");
+        setForm({
+            name: "",
+            sku: "",
+            category: "",
+            uom: "",
+            qty: "",
+            warehouse: "WH-A",
+            reorder: ""
+        });
+
+        reload();
     }
-    try {
-      updateProduct(sku, { qty: Number(val) });
-      reload();
-    } catch (e) {
-      alert(e.message || "Could not update");
+
+    function handleAdjust(sku) {
+        const p = products.find((x) => x.sku === sku);
+        const newQty = prompt(
+            `Enter new qty for ${sku} (current: ${p.qty})`,
+            p.qty
+        );
+        if (newQty === null) return;
+        if (!Number.isInteger(Number(newQty)) || Number(newQty) < 0)
+            return alert("Enter non-negative integer");
+
+        updateProduct(sku, { qty: Number(newQty) });
+        reload();
     }
-  }
 
-  return (
-    <div>
-      <h2 style={{ margin: 0 }}>Products</h2>
-      <p className="muted" style={{ margin: 0 }}>
-        Create/update products, view stock per warehouse, categories, and reordering rules.
-      </p>
+    // Compute visible list
+    const visible = products.filter((p) => {
+        const q = search.trim().toLowerCase();
 
-      <section style={{ marginTop: 16, background: "white", padding: 12, borderRadius: 8 }}>
-        <h3 style={{ marginTop: 0 }}>Create product</h3>
-        <form onSubmit={handleCreate} style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-          <div>
-            <label style={{ display: "block", fontSize: 13 }}>Name *</label>
-            <input name="name" value={form.name} onChange={handleChange} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }} />
-          </div>
+        // Smart search
+        if (q) {
+            const hit =
+                p.sku.toLowerCase().includes(q) ||
+                p.name.toLowerCase().includes(q) ||
+                (p.category || "").toLowerCase().includes(q);
 
-          <div>
-            <label style={{ display: "block", fontSize: 13 }}>SKU / Code *</label>
-            <input name="sku" value={form.sku} onChange={handleChange} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }} />
-          </div>
+            if (!hit) return false;
+        }
 
-          <div>
-            <label style={{ display: "block", fontSize: 13 }}>Category</label>
-            <input name="category" value={form.category} onChange={handleChange} placeholder="e.g., Widgets" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }} />
-          </div>
+        // Quick filter
+        if (filterMode === "low") {
+            if (!(Number(p.qty) <= Number(p.reorder))) return false;
+        }
 
-          <div>
-            <label style={{ display: "block", fontSize: 13 }}>Unit of Measure *</label>
-            <input name="uom" value={form.uom} onChange={handleChange} placeholder="pcs, kg, m" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }} />
-          </div>
+        if (filterMode === "out") {
+            if (Number(p.qty) !== 0) return false;
+        }
 
-          <div>
-            <label style={{ display: "block", fontSize: 13 }}>Initial stock (optional)</label>
-            <input name="qty" value={form.qty} onChange={handleChange} placeholder="0" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }} />
-          </div>
+        return true;
+    });
 
-          <div>
-            <label style={{ display: "block", fontSize: 13 }}>Warehouse</label>
-            <select name="warehouse" value={form.warehouse} onChange={handleChange} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }}>
-              <option value="WH-A">WH-A</option>
-              <option value="WH-B">WH-B</option>
-              <option value="WH-C">WH-C</option>
-            </select>
-          </div>
+    return (
+        <div>
+            <h2 style={{ margin: 0 }}>Products</h2>
+            <p className="muted" style={{ margin: 0 }}>
+                Manage product master, stock per warehouse & reorder rules.
+            </p>
 
-          <div>
-            <label style={{ display: "block", fontSize: 13 }}>Reorder Qty</label>
-            <input name="reorder" value={form.reorder} onChange={handleChange} placeholder="e.g., 10" style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }} />
-          </div>
+            {/* Search + quick filters */}
+            <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
+                <input
+                    placeholder="Search SKU, name or category..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    style={{
+                        padding: "8px 12px",
+                        borderRadius: 8,
+                        border: "1px solid #ddd",
+                        flex: 1,
+                        minWidth: 260
+                    }}
+                />
 
-          <div style={{ gridColumn: "1 / -1", display: "flex", gap: 8, alignItems: "center" }}>
-            <button type="submit" style={{ padding: "8px 12px", background: "#2563eb", color: "white", border: "none", borderRadius: 6 }}>Create product</button>
-            <button type="button" onClick={() => { setForm({ name: "", sku: "", category: "", uom: "", qty: "", warehouse: "WH-A", reorder: "" }); setError(""); setSuccess(""); }} style={{ padding: "8px 12px" }}>Reset</button>
-            {error && <div style={{ color: "#b91c1c" }}>{error}</div>}
-            {success && <div style={{ color: "#16a34a" }}>{success}</div>}
-          </div>
-        </form>
-      </section>
+                <button
+                    onClick={() => setFilterMode("low")}
+                    style={{
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #fca5a5",
+                        background: filterMode === "low" ? "#ffe4e6" : "#fff"
+                    }}
+                >
+                    Low stock
+                </button>
 
-      <section style={{ marginTop: 16 }} className="table-wrapper">
-        <table style={{ width: "100%", borderCollapse: "collapse", background: "white", borderRadius: 8, overflow: "hidden" }}>
-          <thead>
-            <tr style={{ textAlign: "left", background: "#f3f4f6" }}>
-              <th style={{ padding: 10 }}>SKU</th>
-              <th style={{ padding: 10 }}>Name</th>
-              <th style={{ padding: 10 }}>Category</th>
-              <th style={{ padding: 10 }}>UoM</th>
-              <th style={{ padding: 10 }}>Warehouse</th>
-              <th style={{ padding: 10 }}>Qty</th>
-              <th style={{ padding: 10 }}>Reorder</th>
-              <th style={{ padding: 10 }}>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {products.map((p) => (
-              <tr key={p.sku}>
-                <td style={{ padding: 10 }}>{p.sku}</td>
-                <td style={{ padding: 10 }}>{p.name}</td>
-                <td style={{ padding: 10 }}>{p.category}</td>
-                <td style={{ padding: 10 }}>{p.uom}</td>
-                <td style={{ padding: 10 }}>{p.warehouse}</td>
-                <td style={{ padding: 10, fontWeight: 700 }}>{p.qty}</td>
-                <td style={{ padding: 10 }}>{p.reorder}</td>
-                <td style={{ padding: 10 }}>
-                  <button onClick={() => handleAdjust(p.sku)} className="link-btn" style={{ marginRight: 8 }}>Adjust qty</button>
-                  <button onClick={() => { const newName = prompt('New name', p.name); if (newName) { try { updateProduct(p.sku, { name: newName }); reload(); } catch(e){ alert(e.message) } } }} className="link-btn">Rename</button>
-                </td>
-              </tr>
-            ))}
-            {products.length === 0 && (
-              <tr>
-                <td colSpan={8} className="muted" style={{ padding: 12 }}>No products</td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </section>
-    </div>
-  );
+                <button
+                    onClick={() => setFilterMode("out")}
+                    style={{
+                        padding: "6px 10px",
+                        borderRadius: 8,
+                        border: "1px solid #e5e7eb",
+                        background: filterMode === "out" ? "#f1f5f9" : "#fff"
+                    }}
+                >
+                    Out of stock
+                </button>
+
+                <button
+                    onClick={() => {
+                        setSearch("");
+                        setFilterMode("");
+                    }}
+                    style={{
+                        padding: "6px 10px",
+                        borderRadius: 8
+                    }}
+                >
+                    Clear
+                </button>
+            </div>
+
+            {/* Create product */}
+            <section style={{ marginTop: 20, background: "white", padding: 14, borderRadius: 8 }}>
+                <h3 style={{ marginTop: 0 }}>Create Product</h3>
+                <form
+                    onSubmit={handleCreate}
+                    style={{
+                        display: "grid",
+                        gridTemplateColumns: "1fr 1fr",
+                        gap: 10
+                    }}
+                >
+                    <div>
+                        <label>Name *</label>
+                        <input
+                            name="name"
+                            value={form.name}
+                            onChange={handleChange}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div>
+                        <label>SKU *</label>
+                        <input
+                            name="sku"
+                            value={form.sku}
+                            onChange={handleChange}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div>
+                        <label>Category</label>
+                        <input
+                            name="category"
+                            value={form.category}
+                            onChange={handleChange}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div>
+                        <label>Unit of Measure *</label>
+                        <input
+                            name="uom"
+                            value={form.uom}
+                            onChange={handleChange}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div>
+                        <label>Initial Stock</label>
+                        <input
+                            name="qty"
+                            value={form.qty}
+                            onChange={handleChange}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div>
+                        <label>Warehouse</label>
+                        <select
+                            name="warehouse"
+                            value={form.warehouse}
+                            onChange={handleChange}
+                            style={inputStyle}
+                        >
+                            <option value="WH-A">WH-A</option>
+                            <option value="WH-B">WH-B</option>
+                            <option value="WH-C">WH-C</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label>Reorder Qty</label>
+                        <input
+                            name="reorder"
+                            value={form.reorder}
+                            onChange={handleChange}
+                            style={inputStyle}
+                        />
+                    </div>
+
+                    <div style={{ gridColumn: "1 / -1", display: "flex", gap: 10 }}>
+                        <button
+                            type="submit"
+                            style={{
+                                padding: "8px 12px",
+                                background: "#2563eb",
+                                color: "white",
+                                borderRadius: 6,
+                                border: "none"
+                            }}
+                        >
+                            Create
+                        </button>
+                        {error && <div style={{ color: "#b91c1c" }}>{error}</div>}
+                        {success && <div style={{ color: "#16a34a" }}>{success}</div>}
+                    </div>
+                </form>
+            </section>
+
+            {/* Table */}
+            <section style={{ marginTop: 20 }} className="table-wrapper">
+                <table style={tableStyle}>
+                    <thead>
+                        <tr style={theadRow}>
+                            <th style={th}>SKU</th>
+                            <th style={th}>Name</th>
+                            <th style={th}>Category</th>
+                            <th style={th}>UoM</th>
+                            <th style={th}>Warehouse</th>
+                            <th style={th}>Qty</th>
+                            <th style={th}>Reorder</th>
+                            <th style={th}>Actions</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {visible.map((p) => {
+                            const low = Number(p.qty) <= Number(p.reorder);
+                            const out = Number(p.qty) === 0;
+
+                            return (
+                                <tr
+                                    key={p.sku}
+                                    style={{
+                                        background: out
+                                            ? "#fff1f2"
+                                            : low
+                                                ? "#fff7ed"
+                                                : "white"
+                                    }}
+                                >
+                                    <td style={td}>{p.sku}</td>
+                                    <td style={td}>{p.name}</td>
+                                    <td style={td}>{p.category}</td>
+                                    <td style={td}>{p.uom}</td>
+                                    <td style={td}>{p.warehouse}</td>
+                                    <td style={{ ...td, fontWeight: 600 }}>{p.qty}</td>
+                                    <td style={td}>{p.reorder}</td>
+                                    <td style={td}>
+                                        <button
+                                            onClick={() => handleAdjust(p.sku)}
+                                            className="link-btn"
+                                        >
+                                            Adjust qty
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
+
+                        {visible.length === 0 && (
+                            <tr>
+                                <td colSpan="8" style={{ padding: 14, color: "#9ca3af" }}>
+                                    No matching products
+                                </td>
+                            </tr>
+                        )}
+                    </tbody>
+                </table>
+            </section>
+        </div>
+    );
 }
+
+const inputStyle = {
+    width: "100%",
+    padding: "8px 10px",
+    borderRadius: 6,
+    border: "1px solid #ddd"
+};
+
+const tableStyle = {
+    width: "100%",
+    background: "white",
+    borderRadius: 8,
+    overflow: "hidden",
+    borderCollapse: "collapse"
+};
+
+const theadRow = {
+    background: "#f3f4f6",
+    textAlign: "left"
+};
+
+const th = {
+    padding: 10,
+    fontWeight: 600,
+    fontSize: 14
+};
+
+const td = {
+    padding: 10,
+    borderTop: "1px solid #f1f5f9"
+};

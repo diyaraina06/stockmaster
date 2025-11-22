@@ -17,6 +17,9 @@ body {
   margin: 50px auto;
   border-radius: 10px;
 }
+.table-wrapper { overflow-x: auto; }
+.low-row { background: #fff7ed; } /* subtle highlight for low stock rows */
+.out-row { background: #fff1f2; } /* out of stock */
 
 
 
