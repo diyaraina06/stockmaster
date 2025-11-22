@@ -10,10 +10,11 @@ import OtpVerify from "./components/auth/OtpVerify";
 import SidebarLayout from "./components/layout/SidebarLayout";
 import StockMasterDashboard from "./components/StockMasterDashboard";
 
-// pages wired to sidebar
+// Pages
 import Products from "./pages/Products";
 import Receipts from "./pages/Receipts";
 import Deliveries from "./pages/Deliveries";
+import InternalTransfers from "./pages/InternalTransfers"; // ADDED
 import Adjustments from "./pages/Adjustments";
 import Moves from "./pages/Moves";
 import Settings from "./pages/Settings";
@@ -26,17 +27,21 @@ function Private({ children }) {
   return children;
 }
 
-// Routes: public auth pages; protected app pages wrapped by SidebarLayout
+function LogoutHandler() {
+  logout();
+  return <Navigate to="/login" replace />;
+}
+
 const router = createBrowserRouter([
   { path: "/", element: <Navigate to="/dashboard" replace /> },
 
-  // auth
+  // ---------- AUTH ROUTES ----------
   { path: "/login", element: <Login /> },
   { path: "/signup", element: <Signup /> },
   { path: "/forgot", element: <ForgotPassword /> },
   { path: "/otp", element: <OtpVerify /> },
 
-  // protected app area (uses SidebarLayout with nested routes)
+  // ---------- PROTECTED APP ----------
   {
     path: "/",
     element: (
@@ -45,34 +50,29 @@ const router = createBrowserRouter([
       </Private>
     ),
     children: [
-      { index: false, path: "dashboard", element: <StockMasterDashboard /> },
+      { path: "dashboard", element: <StockMasterDashboard /> },
+
+      // Operations
       { path: "products", element: <Products /> },
       { path: "receipts", element: <Receipts /> },
       { path: "deliveries", element: <Deliveries /> },
+      { path: "internal", element: <InternalTransfers /> },  // ⭐ ADDED
       { path: "adjustments", element: <Adjustments /> },
       { path: "moves", element: <Moves /> },
+
+      // Settings & Profile
       { path: "settings", element: <Settings /> },
       { path: "profile", element: <Profile /> },
-      // logout route just clears auth and returns to login
-      {
-        path: "logout",
-        element: <LogoutHandler />
-      }
+
+      // Logout
+      { path: "logout", element: <LogoutHandler /> }
     ]
   },
 
-  // fallback
+  // ---------- 404 ----------
   { path: "*", element: <div style={{ padding: 20 }}>Not found — <a href="/">Go home</a></div> }
 ]);
-
-// small logout handler component
-function LogoutHandler() {
-  logout();
-  // redirect to login
-  return <Navigate to="/login" replace />;
-}
 
 export default function AppRoutes() {
   return <RouterProvider router={router} />;
 }
-

@@ -50,6 +50,7 @@ export default function SidebarLayout() {
                     <SidebarLink to="/deliveries" label="Delivery Orders" />
                     <SidebarLink to="/adjustments" label="Inventory Adjustment" />
                     <SidebarLink to="/moves" label="Move History" />
+                    <SidebarLink to="/internal" label="Internal Transfers" />
 
                     <div style={{ margin: "12px 0 8px", fontSize: 12, color: "#6b7280" }}>Settings</div>
                     <SidebarLink to="/settings" label="Warehouse" />
@@ -57,6 +58,8 @@ export default function SidebarLayout() {
                     <div style={{ margin: "18px 0 6px", fontSize: 12, color: "#6b7280" }}>Profile</div>
                     <SidebarLink to="/profile" label="My Profile" />
                     <SidebarLink to="/logout" label="Logout" />
+                    
+
                 </nav>
 
                 <div style={{ marginTop: "auto", padding: 12, fontSize: 12, color: "#9ca3af" }}>

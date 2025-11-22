@@ -1,16 +1,17 @@
-// src/pages/Adjustments.jsx
+// src/pages/InternalTransfers.jsx
 import React, { useEffect, useState } from "react";
 import { getDocuments, getProducts, createDocument, validateDocument } from "../state/store";
 
-export default function Adjustments() {
+export default function InternalTransfers() {
   const [documents, setDocuments] = useState([]);
   const [products, setProducts] = useState([]);
-  const [filter, setFilter] = useState("");
   const [creating, setCreating] = useState(false);
+  const [filter, setFilter] = useState("");
 
   const [form, setForm] = useState({
-    warehouse: "WH-A",
-    items: [] // { sku, qty_counted }
+    fromWarehouse: "WH-A",
+    toWarehouse: "WH-B",
+    items: [], // { sku, qty }
   });
 
   useEffect(() => {
@@ -19,28 +20,28 @@ export default function Adjustments() {
   }, []);
 
   function reload() {
-    const docs = getDocuments().filter(d => d.type === "adjustments");
+    const docs = getDocuments().filter(d => d.type === "internal");
     setDocuments(docs);
   }
 
   function startCreate() {
     setCreating(true);
-    setForm({ warehouse: "WH-A", items: [] });
+    setForm({ fromWarehouse: "WH-A", toWarehouse: "WH-B", items: [] });
   }
 
   function cancelCreate() {
     setCreating(false);
-    setForm({ warehouse: "WH-A", items: [] });
+    setForm({ fromWarehouse: "WH-A", toWarehouse: "WH-B", items: [] });
   }
 
   function addLine() {
-    setForm(f => ({ ...f, items: [...f.items, { sku: "", qty_counted: 0 }] }));
+    setForm(f => ({ ...f, items: [...f.items, { sku: "", qty: 1 }] }));
   }
 
-  function updateLine(idx, key, value) {
+  function updateLine(idx, key, val) {
     setForm(f => {
       const items = f.items.slice();
-      items[idx] = { ...items[idx], [key]: key === "qty_counted" ? Number(value) : value };
+      items[idx] = { ...items[idx], [key]: key === "qty" ? Number(val) : val };
       return { ...f, items };
     });
   }
@@ -53,22 +54,27 @@ export default function Adjustments() {
     });
   }
 
-  function saveAdjustment() {
+  function saveTransfer() {
+    if (form.fromWarehouse === form.toWarehouse) return alert("Source and destination warehouses must differ");
     if (!form.items.length) return alert("Add at least one product line");
     for (const it of form.items) {
       if (!it.sku) return alert("Select SKU for each line");
-      if (!Number.isInteger(Number(it.qty_counted)) || Number(it.qty_counted) < 0) return alert("Counted quantity must be a non-negative integer");
+      if (!Number.isInteger(Number(it.qty)) || Number(it.qty) <= 0) return alert("Qty must be positive integer");
+      // check stock in source
+      const p = products.find(pp => pp.sku === it.sku && pp.warehouse === form.fromWarehouse);
+      const avail = p ? Number(p.qty || 0) : 0;
+      if (it.qty > avail) return alert(`Insufficient stock for ${it.sku} in ${form.fromWarehouse} (available ${avail})`);
     }
 
     const doc = createDocument({
-      type: "adjustments",
+      type: "internal",
       status: "Draft",
-      items: form.items.map(it => ({ sku: it.sku, qty_counted: Number(it.qty_counted) })),
-      warehouse: form.warehouse,
-      meta: {}
+      items: form.items.map(it => ({ sku: it.sku, qty: Number(it.qty) })),
+      warehouse: form.fromWarehouse,
+      meta: { toWarehouse: form.toWarehouse }
     });
 
-    alert(`Created adjustment ${doc.id} (Draft). Validate to apply counted quantities to stock.`);
+    alert(`Created internal transfer ${doc.id} (Draft). Validate to move stock.`);
     setCreating(false);
     reload();
   }
@@ -76,7 +82,7 @@ export default function Adjustments() {
   function handleValidate(id) {
     try {
       validateDocument(id);
-      alert(`Adjustment ${id} validated — product quantities updated.`);
+      alert(`Transfer ${id} validated — stock moved.`);
       reload();
       setProducts(getProducts());
     } catch (e) {
@@ -90,8 +96,8 @@ export default function Adjustments() {
     <div>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
-          <h2 style={{ margin: 0 }}>Inventory Adjustments</h2>
-          <p className="muted" style={{ margin: 0 }}>Record physical counts and apply adjustments. Validating will update recorded stock to counted quantities.</p>
+          <h2 style={{ margin: 0 }}>Internal Transfers</h2>
+          <p className="muted" style={{ margin: 0 }}>Move stock between warehouses. Validating will decrease source and increase destination.</p>
         </div>
 
         <div style={{ display: "flex", gap: 8 }}>
@@ -104,42 +110,56 @@ export default function Adjustments() {
             <option value="Canceled">Canceled</option>
           </select>
 
-          <button onClick={startCreate} style={{ padding: "8px 12px", borderRadius: 6, background: "#f59e0b", color: "white", border: "none" }}>
-            New Adjustment
+          <button onClick={startCreate} style={{ padding: "8px 12px", borderRadius: 6, background: "#8b5cf6", color: "white", border: "none" }}>
+            New Transfer
           </button>
         </div>
       </div>
 
       {creating && (
         <section style={{ marginTop: 12, background: "white", padding: 12, borderRadius: 8 }}>
-          <h3 style={{ marginTop: 0 }}>Create Adjustment</h3>
+          <h3 style={{ marginTop: 0 }}>Create Internal Transfer</h3>
 
-          <div style={{ marginBottom: 8 }}>
-            <label style={{ display: "block", fontSize: 13 }}>Warehouse</label>
-            <select value={form.warehouse} onChange={e => setForm(f => ({ ...f, warehouse: e.target.value }))} style={{ padding: 8, borderRadius: 6, border: "1px solid #ddd" }}>
-              <option value="WH-A">WH-A</option>
-              <option value="WH-B">WH-B</option>
-              <option value="WH-C">WH-C</option>
-            </select>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 8 }}>
+            <div>
+              <label style={{ display: "block", fontSize: 13 }}>From (warehouse)</label>
+              <select value={form.fromWarehouse} onChange={e => setForm(f => ({ ...f, fromWarehouse: e.target.value }))} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }}>
+                <option value="WH-A">WH-A</option>
+                <option value="WH-B">WH-B</option>
+                <option value="WH-C">WH-C</option>
+              </select>
+            </div>
+
+            <div>
+              <label style={{ display: "block", fontSize: 13 }}>To (warehouse)</label>
+              <select value={form.toWarehouse} onChange={e => setForm(f => ({ ...f, toWarehouse: e.target.value }))} style={{ width: "100%", padding: 8, borderRadius: 6, border: "1px solid #ddd" }}>
+                <option value="WH-A">WH-A</option>
+                <option value="WH-B">WH-B</option>
+                <option value="WH-C">WH-C</option>
+              </select>
+            </div>
           </div>
 
           <div style={{ marginBottom: 8 }}>
-            <h4 style={{ margin: "6px 0" }}>Items (physical count)</h4>
+            <h4 style={{ margin: "6px 0" }}>Items</h4>
             {form.items.map((line, idx) => (
               <div key={idx} style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 8 }}>
                 <select value={line.sku} onChange={e => updateLine(idx, "sku", e.target.value)} style={{ padding: 8, borderRadius: 6, border: "1px solid #ddd" }}>
                   <option value="">Select product SKU</option>
                   {products.map(p => <option key={p.sku} value={p.sku}>{p.sku} — {p.name} — ({p.warehouse})</option>)}
                 </select>
-                <input value={line.qty_counted} type="number" min="0" onChange={e => updateLine(idx, "qty_counted", e.target.value)} style={{ width: 140, padding: 8, borderRadius: 6, border: "1px solid #ddd" }} />
+                <input value={line.qty} type="number" min="1" onChange={e => updateLine(idx, "qty", e.target.value)} style={{ width: 100, padding: 8, borderRadius: 6, border: "1px solid #ddd" }} />
                 <button type="button" onClick={() => removeLine(idx)} className="link-btn">Remove</button>
               </div>
             ))}
-            <div><button onClick={addLine} style={{ padding: "6px 10px", borderRadius: 6 }}>Add line</button></div>
+
+            <div>
+              <button onClick={addLine} style={{ padding: "6px 10px", borderRadius: 6 }}>Add line</button>
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: 8 }}>
-            <button onClick={saveAdjustment} style={{ padding: "8px 12px", background: "#2563eb", color: "white", border: "none", borderRadius: 6 }}>Save adjustment</button>
+            <button onClick={saveTransfer} style={{ padding: "8px 12px", background: "#2563eb", color: "white", border: "none", borderRadius: 6 }}>Save transfer</button>
             <button onClick={cancelCreate} style={{ padding: "8px 12px" }}>Cancel</button>
           </div>
         </section>
@@ -149,8 +169,8 @@ export default function Adjustments() {
         <table style={{ width: "100%", borderCollapse: "collapse", background: "white", borderRadius: 8, overflow: "hidden" }}>
           <thead>
             <tr style={{ textAlign: "left", background: "#f3f4f6" }}>
-              <th style={{ padding: 10 }}>Adjustment ID</th>
-              <th style={{ padding: 10 }}>Warehouse</th>
+              <th style={{ padding: 10 }}>Transfer ID</th>
+              <th style={{ padding: 10 }}>From → To</th>
               <th style={{ padding: 10 }}>Items</th>
               <th style={{ padding: 10 }}>Status</th>
               <th style={{ padding: 10 }}>Actions</th>
@@ -161,13 +181,13 @@ export default function Adjustments() {
             {visible.map(d => (
               <tr key={d.id}>
                 <td style={{ padding: 10 }}>{d.id}</td>
-                <td style={{ padding: 10 }}>{d.warehouse || "—"}</td>
-                <td style={{ padding: 10 }}>{d.items?.map(it => `${it.sku}:${it.qty_counted}`).join(", ")}</td>
+                <td style={{ padding: 10 }}>{d.warehouse} → {d.meta?.toWarehouse || "—"}</td>
+                <td style={{ padding: 10 }}>{d.items?.reduce((s, it) => s + Number(it.qty || 0), 0)}</td>
                 <td style={{ padding: 10 }}>{d.status}</td>
                 <td style={{ padding: 10 }}>
                   <button onClick={() => alert(JSON.stringify(d, null, 2))} className="link-btn" style={{ marginRight: 8 }}>Open</button>
                   {d.status !== "Done" && (
-                    <button onClick={() => { if (confirm(`Validate ${d.id}? This will update recorded stock to counted quantities.`)) handleValidate(d.id); }} className="link-btn">Validate</button>
+                    <button onClick={() => { if (confirm(`Validate ${d.id}? This will move stock.`)) handleValidate(d.id); }} className="link-btn">Validate</button>
                   )}
                 </td>
               </tr>
@@ -175,7 +195,7 @@ export default function Adjustments() {
 
             {visible.length === 0 && (
               <tr>
-                <td colSpan={5} className="muted" style={{ padding: 12 }}>No adjustments match filters</td>
+                <td colSpan={5} className="muted" style={{ padding: 12 }}>No transfers match filters</td>
               </tr>
             )}
           </tbody>
