@@ -1,8 +1,10 @@
 // src/components/LowStockAlert.jsx
 import React from "react";
+import { useNavigate } from "react-router-dom";
 import { getProducts } from "../state/store";
 
-export default function LowStockAlert({ onOpen }) {
+export default function LowStockAlert() {
+  const navigate = useNavigate();
   const products = getProducts();
   const low = products.filter(p => Number(p.qty || 0) <= Number(p.reorder || 0));
   if (low.length === 0) return null;
@@ -10,7 +12,7 @@ export default function LowStockAlert({ onOpen }) {
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
       <button
-        onClick={() => onOpen && onOpen()}
+        onClick={() => navigate("/products?filter=low")}
         title="Low stock items"
         style={{
           display: "inline-flex",
@@ -30,3 +32,4 @@ export default function LowStockAlert({ onOpen }) {
     </div>
   );
 }
+
