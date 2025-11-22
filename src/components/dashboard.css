@@ -1,0 +1,29 @@
+/* dashboard.css - pure CSS for the StockMaster dashboard */
+.dashboard-root { padding: 20px; font-family: "Segoe UI", Roboto, Arial, sans-serif; background:#f4f6f8; min-height:100vh; color:#111; }
+.dash-header { display:flex; justify-content:space-between; align-items:center; gap:16px; margin-bottom:18px; }
+.dash-header h1 { margin:0; font-size:22px; }
+.muted { color:#6b7280; font-size:13px; }
+.header-actions { display:flex; gap:10px; align-items:center; }
+.search { padding:8px 10px; border-radius:8px; border:1px solid #ddd; min-width:220px; }
+.btn { background:#2563eb; color:white; border:none; padding:8px 12px; border-radius:8px; cursor:pointer; }
+.btn:hover { filter:brightness(.95); }
+
+.kpi-row { display:flex; gap:12px; margin-bottom:18px; flex-wrap:wrap; }
+.kpi { background:white; border-radius:10px; padding:12px 14px; flex:1; min-width:140px; box-shadow:0 1px 3px rgba(16,24,40,.06); }
+.kpi-title { font-size:13px; color:#6b7280; }
+.kpi-value { font-weight:700; font-size:20px; margin-top:6px; }
+
+.controls { display:flex; gap:10px; margin-bottom:14px; align-items:center; }
+.controls select { padding:8px 10px; border-radius:8px; border:1px solid #ddd; background:white; }
+
+.table-section { background:white; padding:12px; border-radius:10px; box-shadow:0 1px 3px rgba(16,24,40,.06); }
+.product-table { width:100%; border-collapse:collapse; font-size:14px; }
+.product-table th, .product-table td { padding:10px 8px; text-align:left; border-bottom:1px solid #f1f5f9; }
+.product-table th { font-weight:600; color:#374151; font-size:13px; }
+.product-table tr:hover { background:#f8fafc; }
+.qty { font-weight:700; }
+
+.link-btn { background:transparent; border:none; color:#2563eb; margin-right:8px; cursor:pointer; }
+.link-btn:hover { text-decoration:underline; }
+
+.dash-footer { margin-top:12px; font-size:13px; color:#6b7280; }
