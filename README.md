@@ -1,16 +1,46 @@
-# React + Vite
+📦 StockMaster – Inventory Management System
+A simple, fast, React-based Inventory Management System built for the Odoo Hackathon.
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+🚀 Key Features
+Authentication: Signup, Login, OTP Reset, Role-based access
+Dashboard:
+Total products
+Low/Out-of-stock
+Pending Receipts / Deliveries
+Scheduled Transfers
+Filters by type, status, warehouse, category
 
-Currently, two official plugins are available:
+📂 Modules
+✔ Products
+Create / update products
+SKU, Category, UoM, Initial Stock
+Multi-warehouse support
+Low-stock alerts
+Smart search & filters
+✔ Receipts (Incoming Stock)
+Add supplier & items
+Validate → stock increases
+✔ Deliveries (Outgoing Stock)
+Add customer & items
+Validate → stock decreases
+Prevent insufficient stock
+✔ Internal Transfers
+Move items between warehouses
+Validate → source decreases, destination increases
+✔ Inventory Adjustments
+Enter counted qty
+Validate → updates stock
+✔ Move History
+Shows all Receipts, Deliveries, Transfers, Adjustments
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+🛠 Tech
+React + Vite
+React Router
+LocalStorage-based store
+Pure CSS (no backend)
 
-## React Compiler
+▶ Run Locally
+npm install
+npm run dev
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+Open: http://localhost:5173
