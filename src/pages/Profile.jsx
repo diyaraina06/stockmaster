@@ -52,9 +52,9 @@ export default function Profile() {
                 </table>
             </section>
 
-            <footer style={{ marginTop: 18 }} className="muted">
+            {/* <footer style={{ marginTop: 18 }} className="muted">
                 Problem statement (for reference): <code>/mnt/data/StockMaster.pdf</code>
-            </footer>
+            </footer> */}
         </div>
     );
 }
